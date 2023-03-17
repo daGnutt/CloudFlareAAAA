@@ -2,10 +2,14 @@
 
 import json
 import requests
+import sys
 
-HOSTNAME="server.f-lg9.gnutt.se"
-APIKEY="3uXCpBMuvOD2h0lrcYEQOrzMv5RfXgLESuDfUAlD"
-CLOUDFLARE_ZONE_ID="3567bb2acf4f93be3663c5cf62483f70"
+secretfile = open('secrets.json')
+secret = json.load(secretfile)
+
+HOSTNAME=secret['HOSTNAME']
+APIKEY=secret['APIKEY']
+CLOUDFLARE_ZONE_ID=secret['CLOUDFLARE_ZONE_ID']
 
 def create_dns_post(type, name, content):
   newdata = {"type": type, "name": name, "content": content, "comment":"Added by Gnutt's CloudFlare AAAA DynDNS"}
