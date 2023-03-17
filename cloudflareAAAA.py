@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import requests
-import sys
 
-secretfile = open('secrets.json')
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__))) #stolen from https://stackoverflow.com/a/4060259
+
+secretfile = open(os.path.join(__location__, 'secrets.json'))
 secret = json.load(secretfile)
 
 HOSTNAME=secret['HOSTNAME']
