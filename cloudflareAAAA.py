@@ -8,7 +8,7 @@ APIKEY="3uXCpBMuvOD2h0lrcYEQOrzMv5RfXgLESuDfUAlD"
 CLOUDFLARE_ZONE_ID="3567bb2acf4f93be3663c5cf62483f70"
 
 def create_dns_post(type, name, content):
-  newdata = {"type": type, "name": name, "content": content}
+  newdata = {"type": type, "name": name, "content": content, "comment":"Added by Gnutt's CloudFlare AAAA DynDNS"}
   response = requests.post(
     url="https://api.cloudflare.com/client/v4/zones/{zone_identifier}/dns_records".format(
       zone_identifier=CLOUDFLARE_ZONE_ID
@@ -26,7 +26,7 @@ def fetch_all_dns():
   return data.json()['result']
 
 def update_dns_post(id, type, name, content):
-  newdata = {"type": type, "name": name, "content": content}
+  newdata = {"type": type, "name": name, "content": content, "comment":"Added by Gnutt's CloudFlare AAAA DynDNS"}
   result = requests.patch(
     url="https://api.cloudflare.com/client/v4/zones/{zone_identifier}/dns_records/{identifier}".format(
       zone_identifier=CLOUDFLARE_ZONE_ID,

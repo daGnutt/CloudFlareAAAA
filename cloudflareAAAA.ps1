@@ -14,6 +14,7 @@ function create_dns_post() {
         "type"="AAAA"
         "name"=$secrets.HOSTNAME
         "content"=$secrets.IPv6
+        "comment"="Added by Gnutt's CloudFlare AAAA DynDNS"
     }
     $data = Invoke-WebRequest -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records" -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Body ($myData | ConvertTo-Json)
     return ($data.Content | ConvertFrom-Json).result
@@ -28,6 +29,7 @@ function update_dns_post() {
         "type"="AAAA"
         "name"=$secrets.HOSTNAME
         "content"=$secrets.IPv6
+        "comment"="Added by Gnutt's CloudFlare AAAA DynDNS"
     }
     $data = Invoke-WebRequest -Method Patch -Uri "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)" -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Body ($myData | ConvertTo-Json)
     return ($data.Content | ConvertFrom-Json).result
