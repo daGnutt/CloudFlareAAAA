@@ -43,7 +43,13 @@ function remove_dns_post() {
     return ($data.Content | ConvertFrom-Json).result
 }
 
-$secrets = Get-Content ./secrets.json | ConvertFrom-Json
+function Get-ScriptDirectory
+{
+  $Invocation = (Get-Variable MyInvocation -Scope 1).Value
+  Split-Path $Invocation.MyCommand.Path
+}
+
+$secrets = Get-Content (Join-Path -Path (Get-ScriptDirectory) -ChildPath "secrets.json") | ConvertFrom-Json
 $MANDATORY_SECRETS="HOSTNAME", "APIKEY", "CLOUDFLARE_ZONE_ID"
 
 foreach($attr in $MANDATORY_SECRETS) {
@@ -53,7 +59,6 @@ foreach($attr in $MANDATORY_SECRETS) {
     }
 }
 $PublicIPV6 = (Invoke-WebRequest -Uri "https://v6.ipinfo.io/ip").Content
-$PublicIPV6 = "2001:9b1:c5c0:6c00:45ab:34af:257b:c9a4"
 $secrets | Add-Member -MemberType NoteProperty -Name 'IPv6' -Value $PublicIPV6
 
 $posts = fetch_all_dns -secrets $secrets
