@@ -1,4 +1,7 @@
-<##>
+<#
+.DESCRIPTION
+Powershell script that takes a secrets file with Cloudflare information and posts the public IPv6 address you are accessing internet with as a host on cloudflare.
+#>
 [cmdletbinding()]
 Param()
 
