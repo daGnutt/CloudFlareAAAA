@@ -2,8 +2,12 @@
 .DESCRIPTION
 Powershell script that takes a secrets file with Cloudflare information and posts the public IPv6 address you are accessing internet with as a host on cloudflare.
 #>
+
 [cmdletbinding()]
-Param()
+Param(
+    [Parameter()][String]$SecretsFile = "./secrets.json"
+)
+
 
 function fetch_all_dns() {
     param(
@@ -64,15 +68,25 @@ if($Verbose) {
     Write-Verbose -Message "Enabling Verbose Output"
 }
 
-Write-Verbose -Message "Loading Secrets"
-$secrets = Get-Content (Join-Path -Path (Get-ScriptDirectory) -ChildPath "secrets.json") | ConvertFrom-Json
+if( !(Resolve-Path $SecretsFile -ErrorAction SilentlyContinue )) {
+    Write-Verbose "Could not find secrets file at $($SecretsFile), trying with script directory attached"
+    $SecretsFile = Join-Path -Path (Get-ScriptDirectory) -ChildPath $SecretsFile -ErrorAction SilentlyContinue
+    if( !(Resolve-Path $SecretsFile -ErrorAction SilentlyContinue )) {
+        throw "Could not find the secrets file"
+    } else {
+        $SecretsFile = Resolve-Path $SecretsFile
+        Write-Verbose "Found it at $($SecretsFile)"
+    }
+}
+
+Write-Verbose -Message "Loading Secrets from $($SecretsFile)"
+$secrets = Get-Content $SecretsFile | ConvertFrom-Json
 $MANDATORY_SECRETS="HOSTNAME", "APIKEY", "CLOUDFLARE_ZONE_ID"
 
 Write-Verbose -Message "Verifying all required secrets exists"
 foreach($attr in $MANDATORY_SECRETS) {
     if(! (Get-Member -InputObject $secrets -Name $attr)) {
-        Write-Error "Secrets is missing the property $attr"
-        return -1
+        throw "Secrets is missing property $attr"
     }
 }
 Write-Verbose -Message "Asked internet what the public IPv6 Address is"
