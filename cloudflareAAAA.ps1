@@ -108,6 +108,8 @@ if($filteredposts.Length -eq 0) {
     if( $filteredposts[0].content -ne $secrets.IPv6 ) {
         Write-Verbose -Message "It did not, updating first DNS matching DNS post"
         update_dns_post -secrets $secrets -id $filteredposts[0].id
+    } else {
+        Write-Verbose "It matched, nothing to update!"
     }
 }
 
