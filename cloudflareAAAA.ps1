@@ -89,8 +89,15 @@ foreach($attr in $MANDATORY_SECRETS) {
         throw "Secrets is missing property $attr"
     }
 }
+
+if(!(Get-Member -InputObject $secrets -Name "IPv6CheckURL")) # If there is no replacement IPv6 Check URL, use the default
+{
+    $secrets | Add-Member -MemberType NoteProperty -Name 'IPv6CheckURL' -Value "https://v6.ipinfo.io/ip"
+}
+
 Write-Verbose -Message "Asked internet what the public IPv6 Address is"
-$PublicIPV6 = (Invoke-WebRequest -Uri "https://v6.ipinfo.io/ip" -Verbose:$false).Content 
+$PublicIPV6 = (Invoke-WebRequest -Uri $secrets.IPv6CheckURL -Verbose:$false -ErrorAction Stop).Content #@TODO ADD CHECK TO KILL IF NOT WORKING
+if(!$PublicIPV6) {throw "Could not fetch a good IPv6 Address for some reason"}
 Write-Verbose -Message "It was $($PublicIPV6), storing it in the global secrets variable"
 $secrets | Add-Member -MemberType NoteProperty -Name 'IPv6' -Value $PublicIPV6
 
@@ -104,7 +111,7 @@ if($filteredposts.Length -eq 0) {
     Write-Verbose -Message "Creating a new DNS post"
     create_dns_post -secrets $secrets
 } elseif( $filteredposts.Length -gt 0) {
-    Write-Verbose -Message "Checking that first DNS post returned has correct IPv6 address ($($filteredposts[0].content) compared to stored $($PublicIPV6))"
+    Write-Verbose -Message "Checking that first DNS post returned has correct IPv6 address [$($filteredposts[0].content) compared to stored $($PublicIPV6)]"
     if( $filteredposts[0].content -ne $secrets.IPv6 ) {
         Write-Verbose -Message "It did not, updating first DNS matching DNS post"
         update_dns_post -secrets $secrets -id $filteredposts[0].id
