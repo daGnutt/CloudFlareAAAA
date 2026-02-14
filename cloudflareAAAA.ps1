@@ -31,6 +31,14 @@ Param(
 )
 
 # ===========================
+# Configuration & Constants
+# ===========================
+
+$CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
+$API_TIMEOUT_SECONDS = 30  # Timeout for API calls
+$IPV6_REGEX = "^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$"  # Basic IPv6 validation
+
+# ===========================
 # Helper Functions
 # ===========================
 
@@ -57,33 +65,43 @@ function fetch_all_dns() {
     $allRecords = @()
     $page = 1
     $perPage = 100  # Max results per page (Cloudflare max is 500, but 100 is reasonable)
-    $baseUri = "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records"
+    $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records"
     $headers = @{'Authorization' = "Bearer $($secrets.APIKEY)"}
     
     # Loop through all pages of results
     do {
         Write-Verbose -Message "Fetching DNS records page $page (up to $perPage records per page)"
         
-        # Build URI with pagination parameters
-        $uri = "$baseUri`?page=$page&per_page=$perPage"
-        
-        # Fetch the current page of results
-        $response = Invoke-WebRequest -Method Get -Uri $uri -Headers $headers -Verbose:$false
-        $jsonResponse = $response.Content | ConvertFrom-Json
-        
-        # Get the records from this page
-        $pageRecords = $jsonResponse.result
-        $allRecords += $pageRecords
-        
-        Write-Verbose -Message "Retrieved $($pageRecords.Count) records from page $page"
-        
-        # Check if there are more pages
-        $totalCount = $jsonResponse.result_info.total_count
-        $pages = $jsonResponse.result_info.total_pages
-        
-        Write-Verbose -Message "Total records available: $totalCount across $pages pages"
-        
-        $page++
+        try {
+            # Build URI with pagination parameters
+            $pageUri = "$uri`?page=$page&per_page=$perPage"
+            
+            # Fetch the current page of results
+            $response = Invoke-WebRequest -Method Get -Uri $pageUri -Headers $headers -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
+            $jsonResponse = $response.Content | ConvertFrom-Json
+            
+            # Check for API errors
+            if (-not $jsonResponse.success) {
+                throw "Cloudflare API error: $($jsonResponse.errors | ConvertTo-Json)"
+            }
+            
+            # Get the records from this page
+            $pageRecords = $jsonResponse.result
+            $allRecords += $pageRecords
+            
+            Write-Verbose -Message "Retrieved $($pageRecords.Count) records from page $page"
+            
+            # Check if there are more pages
+            $totalCount = $jsonResponse.result_info.total_count
+            $pages = $jsonResponse.result_info.total_pages
+            
+            Write-Verbose -Message "Total records available: $totalCount across $pages pages"
+            
+            $page++
+            
+        } catch {
+            throw "Failed to fetch DNS records from Cloudflare: $_"
+        }
         
     } while ($page -le $pages)
     
@@ -116,9 +134,22 @@ function create_dns_post() {
         "content"=$secrets.IPv6
         "comment"="Added by Gnutt's CloudFlare AAAA DynDNS"
     }
-    # POST request to create the new DNS record
-    $data = Invoke-WebRequest -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records" -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Body ($myData | ConvertTo-Json) -Verbose:$false
-    return ($data.Content | ConvertFrom-Json).result
+    try {
+        # POST request to create the new DNS record
+        $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records"
+        $data = Invoke-WebRequest -Method Post -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Body ($myData | ConvertTo-Json) -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
+        $response = $data.Content | ConvertFrom-Json
+        
+        # Check for API errors
+        if (-not $response.success) {
+            throw "Cloudflare API error: $($response.errors | ConvertTo-Json)"
+        }
+        
+        Write-Host "Created new AAAA record: $($secrets.HOSTNAME) -> $($secrets.IPv6)" -ForegroundColor Green
+        return $response.result
+    } catch {
+        throw "Failed to create DNS record: $_"
+    }
 }
 
 <#
@@ -150,9 +181,22 @@ function update_dns_post() {
         "content"=$secrets.IPv6
         "comment"="Added by Gnutt's CloudFlare AAAA DynDNS"
     }
-    # PATCH request to update the existing DNS record
-    $data = Invoke-WebRequest -Method Patch -Uri "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)" -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"; 'Content-Type' = 'application/json'} -Body ($myData | ConvertTo-Json) -Verbose:$false
-    return ($data.Content | ConvertFrom-Json).result
+    try {
+        # PATCH request to update the existing DNS record
+        $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)"
+        $data = Invoke-WebRequest -Method Patch -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"; 'Content-Type' = 'application/json'} -Body ($myData | ConvertTo-Json) -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
+        $response = $data.Content | ConvertFrom-Json
+        
+        # Check for API errors
+        if (-not $response.success) {
+            throw "Cloudflare API error: $($response.errors | ConvertTo-Json)"
+        }
+        
+        Write-Host "Updated AAAA record: $($secrets.HOSTNAME) -> $($secrets.IPv6)" -ForegroundColor Green
+        return $response.result
+    } catch {
+        throw "Failed to update DNS record: $_"
+    }
 }
 
 <#
@@ -177,9 +221,22 @@ function remove_dns_post() {
         [Parameter(Mandatory)][PSObject]$secrets,
         [Parameter(Mandatory)][String]$id
     )
-    # DELETE request to remove the DNS record
-    $data = Invoke-WebRequest -Method Delete -Uri "https://api.cloudflare.com/client/v4/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)" -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Verbose:$false
-    return ($data.Content | ConvertFrom-Json).result
+    try {
+        # DELETE request to remove the DNS record
+        $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)"
+        $data = Invoke-WebRequest -Method Delete -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
+        $response = $data.Content | ConvertFrom-Json
+        
+        # Check for API errors
+        if (-not $response.success) {
+            throw "Cloudflare API error: $($response.errors | ConvertTo-Json)"
+        }
+        
+        Write-Verbose -Message "Deleted DNS record with ID: $id"
+        return $response.result
+    } catch {
+        throw "Failed to delete DNS record: $_"
+    }
 }
 
 <#
@@ -241,9 +298,22 @@ if(!(Get-Member -InputObject $secrets -Name "IPv6CheckURL")) # If there is no re
 
 # STEP 4: Fetch the current public IPv6 address from the internet
 Write-Verbose -Message "Asked internet what the public IPv6 Address is"
-$PublicIPV6 = (Invoke-WebRequest -Uri $secrets.IPv6CheckURL -Verbose:$false -ErrorAction Stop).Content
-if(!$PublicIPV6) {throw "Could not fetch a good IPv6 Address for some reason"}
-Write-Verbose -Message "It was $($PublicIPV6), storing it in the global secrets variable"
+try {
+    $PublicIPV6 = (Invoke-WebRequest -Uri $secrets.IPv6CheckURL -Verbose:$false -ErrorAction Stop -TimeoutSec $API_TIMEOUT_SECONDS).Content.Trim()
+} catch {
+    throw "Failed to fetch public IPv6 address: $_"
+}
+
+if (!$PublicIPV6) {
+    throw "Could not fetch a valid IPv6 address from $($secrets.IPv6CheckURL)"
+}
+
+# Validate IPv6 format
+if ($PublicIPV6 -notmatch $IPV6_REGEX) {
+    throw "Invalid IPv6 format received: $PublicIPV6. Expected valid IPv6 address."
+}
+
+Write-Verbose -Message "Current public IPv6 address: $PublicIPV6"
 $secrets | Add-Member -MemberType NoteProperty -Name 'IPv6' -Value $PublicIPV6
 
 # STEP 5: Fetch existing DNS records from Cloudflare
@@ -263,25 +333,29 @@ if($filteredposts.Length -eq 0) {
 } elseif( $filteredposts.Length -gt 0) {
     # Existing record(s) found - check if update is needed
     Write-Verbose -Message "Checking that first DNS post returned has correct IPv6 address [$($filteredposts[0].content) compared to stored $($PublicIPV6)]"
-    if( $filteredposts[0].content -ne $secrets.IPv6 ) {
+    if( $filteredposts[0].content -ne $PublicIPV6 ) {
         # IP has changed - update the record
-        Write-Verbose -Message "It did not, updating first DNS matching DNS post"
+        Write-Verbose -Message "IPv6 address changed, updating DNS record"
         update_dns_post -secrets $secrets -id $filteredposts[0].id
     } else {
         # IP matches - no action needed
-        Write-Verbose "It matched, nothing to update!"
+        Write-Host "No update needed - IPv6 address is current" -ForegroundColor Cyan
+        Write-Verbose "AAAA record is already up-to-date"
     }
 }
 
 # STEP 8: Clean up duplicate records (should only have one AAAA record)
 if( $filteredposts.Length -gt 1) {
+    Write-Host "Found $($filteredposts.Length) AAAA records (expected 1), removing duplicates..." -ForegroundColor Yellow
     Write-Verbose -Message "Too many DNS posts found (should only have one), deleting superfluous"
     # Keep the first record, delete the rest
     $first,[Object[]]$rest = $filteredposts
     foreach($post in $rest) {
-        Write-Verbose -Message "Removing duplicate record with ID $($post.id)"
+        Write-Verbose -Message "Removing duplicate record with ID $($post.id) ($($post.content))"
         remove_dns_post -secrets $secrets -id $post.id
+        Write-Host "Deleted duplicate record: $($post.content)" -ForegroundColor Green
     }
 }
 
+Write-Host "✓ Script execution completed successfully" -ForegroundColor Green
 Write-Verbose -Message "Script execution completed successfully"
