@@ -25,7 +25,7 @@ Optional secrets.json properties:
 .\cloudflareAAAA.ps1 -SecretsFile "./secrets.json" -Verbose
 #>
 
-[cmdletbinding()]
+[cmdletbinding(SupportsShouldProcess=$true)]
 Param(
     [Parameter()][String]$SecretsFile = "./secrets.json"
 )
@@ -329,14 +329,18 @@ Write-Verbose -Message "Still have $($filteredposts.Length) posts in the list"
 if($filteredposts.Length -eq 0) {
     # No existing record - create a new one
     Write-Verbose -Message "Creating a new DNS post"
-    create_dns_post -secrets $secrets
+    if ($PSCmdlet.ShouldProcess("Cloudflare", "Create AAAA record for $($secrets.HOSTNAME) with IP $($secrets.IPv6)")) {
+        create_dns_post -secrets $secrets
+    }
 } elseif( $filteredposts.Length -gt 0) {
     # Existing record(s) found - check if update is needed
     Write-Verbose -Message "Checking that first DNS post returned has correct IPv6 address [$($filteredposts[0].content) compared to stored $($PublicIPV6)]"
     if( $filteredposts[0].content -ne $PublicIPV6 ) {
         # IP has changed - update the record
         Write-Verbose -Message "IPv6 address changed, updating DNS record"
-        update_dns_post -secrets $secrets -id $filteredposts[0].id
+        if ($PSCmdlet.ShouldProcess("Cloudflare", "Update AAAA record for $($secrets.HOSTNAME) from $($filteredposts[0].content) to $($secrets.IPv6)")) {
+            update_dns_post -secrets $secrets -id $filteredposts[0].id
+        }
     } else {
         # IP matches - no action needed
         Write-Host "No update needed - IPv6 address is current" -ForegroundColor Cyan
@@ -352,8 +356,10 @@ if( $filteredposts.Length -gt 1) {
     $first,[Object[]]$rest = $filteredposts
     foreach($post in $rest) {
         Write-Verbose -Message "Removing duplicate record with ID $($post.id) ($($post.content))"
-        remove_dns_post -secrets $secrets -id $post.id
-        Write-Host "Deleted duplicate record: $($post.content)" -ForegroundColor Green
+        if ($PSCmdlet.ShouldProcess("Cloudflare", "Delete duplicate AAAA record $($post.content)")) {
+            remove_dns_post -secrets $secrets -id $post.id
+            Write-Host "Deleted duplicate record: $($post.content)" -ForegroundColor Green
+        }
     }
 }
 
