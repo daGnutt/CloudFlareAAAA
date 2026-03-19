@@ -145,7 +145,6 @@ function create_dns_post() {
             throw "Cloudflare API error: $($response.errors | ConvertTo-Json)"
         }
         
-        Write-Host "Created new AAAA record: $($secrets.HOSTNAME) -> $($secrets.IPv6)" -ForegroundColor Green
         return $response.result
     } catch {
         throw "Failed to create DNS record: $_"
@@ -192,7 +191,6 @@ function update_dns_post() {
             throw "Cloudflare API error: $($response.errors | ConvertTo-Json)"
         }
         
-        Write-Host "Updated AAAA record: $($secrets.HOSTNAME) -> $($secrets.IPv6)" -ForegroundColor Green
         return $response.result
     } catch {
         throw "Failed to update DNS record: $_"
@@ -343,14 +341,12 @@ if($filteredposts.Length -eq 0) {
         }
     } else {
         # IP matches - no action needed
-        Write-Host "No update needed - IPv6 address is current" -ForegroundColor Cyan
         Write-Verbose "AAAA record is already up-to-date"
     }
 }
 
 # STEP 8: Clean up duplicate records (should only have one AAAA record)
 if( $filteredposts.Length -gt 1) {
-    Write-Host "Found $($filteredposts.Length) AAAA records (expected 1), removing duplicates..." -ForegroundColor Yellow
     Write-Verbose -Message "Too many DNS posts found (should only have one), deleting superfluous"
     # Keep the first record, delete the rest
     $first,[Object[]]$rest = $filteredposts
@@ -358,10 +354,8 @@ if( $filteredposts.Length -gt 1) {
         Write-Verbose -Message "Removing duplicate record with ID $($post.id) ($($post.content))"
         if ($PSCmdlet.ShouldProcess("Cloudflare", "Delete duplicate AAAA record $($post.content)")) {
             remove_dns_post -secrets $secrets -id $post.id
-            Write-Host "Deleted duplicate record: $($post.content)" -ForegroundColor Green
         }
     }
 }
 
-Write-Host "✓ Script execution completed successfully" -ForegroundColor Green
 Write-Verbose -Message "Script execution completed successfully"
