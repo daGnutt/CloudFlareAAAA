@@ -21,7 +21,7 @@ A PowerShell script that automatically updates AAAA (IPv6) DNS records in Cloudf
 
 ## Installation
 
-1. Clone this repository or download the `cloudflareAAAA.ps1` script
+1. Clone this repository or download the `Update-CloudflareDnsAAAA.ps1` script
 2. Create a `secrets.json` file based on the `example_secrets.json` template
 3. Fill in your Cloudflare credentials and configuration
 
@@ -45,19 +45,19 @@ Optional properties:
 
 ```powershell
 # Basic usage
-.\.\cloudflareAAAA.ps1
+.\.\Update-CloudflareDnsAAAA.ps1
 
 # With custom secrets file
-.\.\cloudflareAAAA.ps1 -SecretsFile "./secrets.json"
+.\.\Update-CloudflareDnsAAAA.ps1 -SecretsFile "./secrets.json"
 
 # With verbose logging
-.\.\cloudflareAAAA.ps1 -SecretsFile "./secrets.json" -Verbose
+.\.\Update-CloudflareDnsAAAA.ps1 -SecretsFile "./secrets.json" -Verbose
 
 # Dry run - preview changes without making them
-.\.\cloudflareAAAA.ps1 -SecretsFile "./secrets.json" -WhatIf
+.\.\Update-CloudflareDnsAAAA.ps1 -SecretsFile "./secrets.json" -WhatIf
 
 # Interactive mode - confirm each change
-.\.\cloudflareAAAA.ps1 -SecretsFile "./secrets.json" -Confirm
+.\.\Update-CloudflareDnsAAAA.ps1 -SecretsFile "./secrets.json" -Confirm
 ```
 
 ## How It Works

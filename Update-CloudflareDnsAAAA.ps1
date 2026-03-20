@@ -22,7 +22,7 @@ Optional secrets.json properties:
 - IPv6CheckURL: Custom URL to fetch public IPv6 address (default: https://v6.ipinfo.io/ip)
 
 .EXAMPLE
-.\cloudflareAAAA.ps1 -SecretsFile "./secrets.json" -Verbose
+.\Update-CloudflareDnsAAAA.ps1 -SecretsFile "./secrets.json" -Verbose
 #>
 
 [cmdletbinding(SupportsShouldProcess=$true)]
