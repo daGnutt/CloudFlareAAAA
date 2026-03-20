@@ -79,6 +79,7 @@ function fetch_all_dns() {
             # Fetch the current page of results
             $response = Invoke-WebRequest -Method Get -Uri $pageUri -Headers $headers -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
             $jsonResponse = $response.Content | ConvertFrom-Json
+            $null = $response  # Suppress output
             
             # Check for API errors
             if (-not $jsonResponse.success) {
@@ -139,6 +140,7 @@ function create_dns_post() {
         $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records"
         $data = Invoke-WebRequest -Method Post -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Body ($myData | ConvertTo-Json) -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
         $response = $data.Content | ConvertFrom-Json
+        $null = $data  # Suppress output
         
         # Check for API errors
         if (-not $response.success) {
@@ -185,6 +187,7 @@ function update_dns_post() {
         $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)"
         $data = Invoke-WebRequest -Method Patch -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"; 'Content-Type' = 'application/json'} -Body ($myData | ConvertTo-Json) -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
         $response = $data.Content | ConvertFrom-Json
+        $null = $data  # Suppress output
         
         # Check for API errors
         if (-not $response.success) {
@@ -224,6 +227,7 @@ function remove_dns_post() {
         $uri = "$CLOUDFLARE_API_BASE/zones/$($secrets.CLOUDFLARE_ZONE_ID)/dns_records/$($id)"
         $data = Invoke-WebRequest -Method Delete -Uri $uri -Headers @{'Authorization' = "Bearer $($secrets.APIKEY)"} -Verbose:$false -TimeoutSec $API_TIMEOUT_SECONDS
         $response = $data.Content | ConvertFrom-Json
+        $null = $data  # Suppress output
         
         # Check for API errors
         if (-not $response.success) {
@@ -297,7 +301,9 @@ if(!(Get-Member -InputObject $secrets -Name "IPv6CheckURL")) # If there is no re
 # STEP 4: Fetch the current public IPv6 address from the internet
 Write-Verbose -Message "Asked internet what the public IPv6 Address is"
 try {
-    $PublicIPV6 = (Invoke-WebRequest -Uri $secrets.IPv6CheckURL -Verbose:$false -ErrorAction Stop -TimeoutSec $API_TIMEOUT_SECONDS).Content.Trim()
+    $response = Invoke-WebRequest -Uri $secrets.IPv6CheckURL -Verbose:$false -ErrorAction Stop -TimeoutSec $API_TIMEOUT_SECONDS
+    $PublicIPV6 = $response.Content.Trim()
+    $null = $response  # Suppress output
 } catch {
     throw "Failed to fetch public IPv6 address: $_"
 }
@@ -328,7 +334,7 @@ if($filteredposts.Length -eq 0) {
     # No existing record - create a new one
     Write-Verbose -Message "Creating a new DNS post"
     if ($PSCmdlet.ShouldProcess("Cloudflare", "Create AAAA record for $($secrets.HOSTNAME) with IP $($secrets.IPv6)")) {
-        create_dns_post -secrets $secrets
+        $null = create_dns_post -secrets $secrets
     }
 } elseif( $filteredposts.Length -gt 0) {
     # Existing record(s) found - check if update is needed
@@ -337,7 +343,7 @@ if($filteredposts.Length -eq 0) {
         # IP has changed - update the record
         Write-Verbose -Message "IPv6 address changed, updating DNS record"
         if ($PSCmdlet.ShouldProcess("Cloudflare", "Update AAAA record for $($secrets.HOSTNAME) from $($filteredposts[0].content) to $($secrets.IPv6)")) {
-            update_dns_post -secrets $secrets -id $filteredposts[0].id
+            $null = update_dns_post -secrets $secrets -id $filteredposts[0].id
         }
     } else {
         # IP matches - no action needed
@@ -353,7 +359,7 @@ if( $filteredposts.Length -gt 1) {
     foreach($post in $rest) {
         Write-Verbose -Message "Removing duplicate record with ID $($post.id) ($($post.content))"
         if ($PSCmdlet.ShouldProcess("Cloudflare", "Delete duplicate AAAA record $($post.content)")) {
-            remove_dns_post -secrets $secrets -id $post.id
+            $null = remove_dns_post -secrets $secrets -id $post.id
         }
     }
 }
