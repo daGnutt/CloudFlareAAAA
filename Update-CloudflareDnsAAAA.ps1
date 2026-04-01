@@ -36,7 +36,6 @@ Param(
 
 $CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 $API_TIMEOUT_SECONDS = 30  # Timeout for API calls
-$IPV6_REGEX = "^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$"  # Basic IPv6 validation
 
 # ===========================
 # Helper Functions
@@ -312,9 +311,15 @@ if (!$PublicIPV6) {
     throw "Could not fetch a valid IPv6 address from $($secrets.IPv6CheckURL)"
 }
 
-# Validate IPv6 format
-if ($PublicIPV6 -notmatch $IPV6_REGEX) {
-    throw "Invalid IPv6 format received: $PublicIPV6. Expected valid IPv6 address."
+# Validate that the response is a syntactically valid IPv6 address
+try {
+    [ipaddress]$ParsedPublicIPv6 = $PublicIPV6
+} catch {
+    throw "Invalid IP address received: $PublicIPV6. Expected valid IPv6 address."
+}
+
+if ($ParsedPublicIPv6.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetworkV6) {
+    throw "Invalid IP version received: $PublicIPV6. Expected valid IPv6 address."
 }
 
 Write-Verbose -Message "Current public IPv6 address: $PublicIPV6"
